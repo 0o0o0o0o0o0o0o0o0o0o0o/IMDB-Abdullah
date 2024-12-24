@@ -164,28 +164,37 @@
         }
 
         /* Dropdown Styles */
-        .search-dropdown {
+        .search-dropdown,
+        .modal-dropdown {
             background: var(--primary-light);
             border: none;
             color: var(--text-primary);
             padding: 0.5rem 1rem;
-            font-size: 1rem;
+            font-size: 0.9rem; /* Reduced font size */
             border-radius: 50px;
             margin-right: 1rem;
+            width: auto; /* Allow natural width */
+            min-width: 100px; /* Set minimum width */
+            max-width: 150px; /* Set maximum width */
             appearance: none;
             -webkit-appearance: none;
             -moz-appearance: none;
-            background-image: url('data:image/svg+xml;charset=UTF-8,<svg fill="%23b3b3b3" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg"><path d="M70 105l70-70H0l70 70z"/></svg>');
-            background-repeat: no-repeat;
-            background-position: right 1rem center;
-            background-size: 1rem;
             cursor: pointer;
             transition: var(--transition-smooth);
         }
-        .search-dropdown:hover {
+
+        /* Hide the dropdown arrow in Internet Explorer and Edge */
+        .search-dropdown::-ms-expand,
+        .modal-dropdown::-ms-expand {
+            display: none;
+        }
+
+        .search-dropdown:hover,
+        .modal-dropdown:hover {
             background: #2a2a2a;
         }
-        .search-dropdown:focus {
+        .search-dropdown:focus,
+        .modal-dropdown:focus {
             outline: none;
             border: 1px solid var(--accent-primary);
         }
@@ -281,12 +290,13 @@
             gap: 1rem;
         }
         .modal-poster {
-            width: 150px;
+            width: 300px;
             border-radius: 10px;
             overflow: hidden;
         }
         .modal-details {
             flex: 1;
+            text-align: left; /* Ensure left alignment on larger screens */
         }
         .modal-details h2 {
             font-size: 2rem;
@@ -301,32 +311,20 @@
             line-height: 1.5;
         }
 
-        /* Modal Dropdown */
-        .modal-dropdown {
-            background: var(--primary-light);
+        /* Trailer Container */
+        .trailer-container {
+            /* Removed red border and black background */
             border: none;
-            color: var(--text-primary);
-            padding: 0.5rem 1rem;
-            font-size: 1rem;
-            border-radius: 50px;
-            margin-bottom: 1rem;
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            background-image: url('data:image/svg+xml;charset=UTF-8,<svg fill="%23b3b3b3" viewBox="0 0 140 140" xmlns="http://www.w3.org/2000/svg"><path d="M70 105l70-70H0l70 70z"/></svg>');
-            background-repeat: no-repeat;
-            background-position: right 1rem center;
-            background-size: 1rem;
-            cursor: pointer;
-            transition: var(--transition-smooth);
-            width: 200px;
+            border-radius: 10px;
+            padding: 0.5rem;
+            margin-top: 1rem;
+            max-width: 560px; /* Adjust as needed */
+            width: 100%;
+            /* Removed background-color: #000; */
         }
-        .modal-dropdown:hover {
-            background: #2a2a2a;
-        }
-        .modal-dropdown:focus {
-            outline: none;
-            border: 1px solid var(--accent-primary);
+        .trailer-container iframe {
+            width: 100%;
+            height: 315px; /* Default height, can be adjusted */
         }
 
         /* Footer Styles */
@@ -368,9 +366,17 @@
             .search-box {
                 flex-direction: column;
             }
-            .search-dropdown {
-                margin: 0 0 0.5rem 0;
+            .search-dropdown,
+            .modal-dropdown {
                 width: 100%;
+                max-width: none;
+                margin: 0 0 0.5rem 0;
+            }
+            .modal-dropdown {
+                position: relative;
+                top: 0;
+                left: 0;
+                margin-bottom: 1rem;
             }
             .search-btn {
                 width: 100%;
@@ -384,7 +390,10 @@
                 align-items: center;
             }
             .modal-details {
-                text-align: center;
+                text-align: center; /* Center-align text only on small screens */
+            }
+            .trailer-container iframe {
+                height: 200px; /* Adjusted for smaller screens */
             }
         }
     </style>
@@ -627,6 +636,7 @@
             // Fetch Movie Details
             function fetchMovieDetails(id, source, title) {
                 if (source === 'tmdb') {
+                    // Fetch movie details from TMDb
                     fetch(`https://api.themoviedb.org/3/movie/${id}?api_key=${tmdb_api_key}&language=en-US`)
                         .then(response => response.json())
                         .then(movie => {
@@ -642,11 +652,33 @@
                                             certification = releaseInfo.certification;
                                         }
                                     }
-                                    displayModalDetails(movie, source, certification);
+                                    // Fetch trailer
+                                    fetch(`https://api.themoviedb.org/3/movie/${id}/videos?api_key=${tmdb_api_key}&language=en-US`)
+                                        .then(response => response.json())
+                                        .then(videoData => {
+                                            const trailer = videoData.results.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+                                            const trailerUrl = trailer ? `https://www.youtube.com/embed/${trailer.key}` : null;
+                                            displayModalDetails(movie, source, certification, trailerUrl);
+                                        })
+                                        .catch(error => {
+                                            console.error('Error fetching trailer from TMDb:', error);
+                                            displayModalDetails(movie, source, certification, null);
+                                        });
                                 })
                                 .catch(error => {
                                     console.error('Error fetching certifications from TMDb:', error);
-                                    displayModalDetails(movie, source, 'N/A');
+                                    // Fetch trailer even if certification fails
+                                    fetch(`https://api.themoviedb.org/3/movie/${id}/videos?api_key=${tmdb_api_key}&language=en-US`)
+                                        .then(response => response.json())
+                                        .then(videoData => {
+                                            const trailer = videoData.results.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+                                            const trailerUrl = trailer ? `https://www.youtube.com/embed/${trailer.key}` : null;
+                                            displayModalDetails(movie, source, 'N/A', trailerUrl);
+                                        })
+                                        .catch(error => {
+                                            console.error('Error fetching trailer from TMDb:', error);
+                                            displayModalDetails(movie, source, 'N/A', null);
+                                        });
                                 });
                         })
                         .catch(error => {
@@ -658,7 +690,7 @@
                     fetch(`https://www.omdbapi.com/?${param}&apikey=${omdb_api_key}`)
                         .then(response => response.json())
                         .then(movie => {
-                            displayModalDetails(movie, 'omdb');
+                            displayModalDetails(movie, 'omdb', null, null);
                         })
                         .catch(error => {
                             console.error('Error fetching movie details from OMDb:', error);
@@ -667,71 +699,79 @@
                 }
             }
 
-            function displayModalDetails(movie, source, certification = 'N/A') {
-    let detailsHTML = '';
-    if (source === 'tmdb') {
-        detailsHTML = `
-            <div class="modal-header">
-                <div class="modal-poster">
-                    <img src="https://image.tmdb.org/t/p/w500${movie.poster_path}" alt="${movie.title}" style="width: 100%;">
-                </div>
-                <div class="modal-details">
-                    <h2>${movie.title}</h2>
-                    <p><strong>Original Title:</strong> ${movie.original_title}</p>
-                    <p><strong>Release Date:</strong> ${movie.release_date}</p>
-                    <p><strong>Age Rating:</strong> ${certification}</p>
-                    <p><strong>Runtime:</strong> ${movie.runtime} minutes</p>
-                    <p><strong>Genres:</strong> ${movie.genres.map(g => g.name).join(', ')}</p>
-                    <p><strong>Vote Average:</strong> ${movie.vote_average}</p>
-                    <p><strong>Vote Count:</strong> ${movie.vote_count}</p>
-                    <p><strong>Popularity:</strong> ${movie.popularity}</p>
-                    <p><strong>Budget:</strong> $${movie.budget.toLocaleString()}</p>
-                    <p><strong>Revenue:</strong> $${movie.revenue.toLocaleString()}</p>
-                    <p><strong>Production Companies:</strong> ${movie.production_companies.map(c => c.name).join(', ')}</p>
-                </div>
-            </div>
-            <div class="modal-storyline">
-                <h3>Storyline</h3>
-                <p>${movie.overview}</p>
-            </div>
-        `;
-    } else if (source === 'omdb' || source === 'imdb') {
-        detailsHTML = `
-            <div class="modal-header">
-                <div class="modal-poster">
-                    <img src="${movie.Poster !== 'N/A' ? movie.Poster : ''}" alt="${movie.Title}" style="width: 100%;">
-                </div>
-                <div class="modal-details">
-                    <h2>${movie.Title}</h2>
-                    <p><strong>Year:</strong> ${movie.Year}</p>
-                    <p><strong>Age Rated:</strong> ${movie.Rated}</p>
-                    <p><strong>Release Date:</strong> ${movie.Released}</p>
-                    <p><strong>Runtime:</strong> ${movie.Runtime}</p>
-                    <p><strong>Genre:</strong> ${movie.Genre}</p>
-                    <p><strong>Director:</strong> ${movie.Director}</p>
-                    <p><strong>Writer:</strong> ${movie.Writer}</p>
-                    <p><strong>Actors:</strong> ${movie.Actors}</p>
-                    <p><strong>Language:</strong> ${movie.Language}</p>
-                    <p><strong>Country:</strong> ${movie.Country}</p>
-                    <p><strong>Awards:</strong> ${movie.Awards}</p>
-                    <p><strong>IMDb Rating:</strong> ${movie.imdbRating}</p>
-                    <p><strong>IMDb Votes:</strong> ${movie.imdbVotes}</p>
-                    <p><strong>Metascore:</strong> ${movie.Metascore}</p>
-                    <p><strong>BoxOffice:</strong> ${movie.BoxOffice}</p>
-                    <p><strong>Production:</strong> ${movie.Production}</p>
-                    <p><strong>Website:</strong> <a href="${movie.Website}" target="_blank">${movie.Website}</a></p>
-                </div>
-            </div>
-            <div class="modal-storyline">
-                <h3>Storyline</h3>
-                <p>${movie.Plot}</p>
-            </div>
-        `;
-    }
-    modalDetailsContent.innerHTML = detailsHTML;
-}
-
-
+            function displayModalDetails(movie, source, certification = null, trailerUrl = null) {
+                let detailsHTML = '';
+                if (source === 'tmdb') {
+                    detailsHTML = `
+                        <div class="modal-header">
+                            <div class="modal-poster">
+                                <img src="https://image.tmdb.org/t/p/w500${movie.poster_path}" alt="${movie.title}" style="width: 100%;">
+                            </div>
+                            <div class="modal-details">
+                                <h2>${movie.title}</h2>
+                                <p><strong>Original Title:</strong> ${movie.original_title}</p>
+                                <p><strong>Release Date:</strong> ${movie.release_date}</p>
+                                <p><strong>Age Rating:</strong> ${certification}</p>
+                                <p><strong>Runtime:</strong> ${movie.runtime} minutes</p>
+                                <p><strong>Genres:</strong> ${movie.genres.map(g => g.name).join(', ')}</p>
+                                <p><strong>Vote Average:</strong> ${movie.vote_average}</p>
+                                <p><strong>Vote Count:</strong> ${movie.vote_count}</p>
+                                <p><strong>Popularity:</strong> ${movie.popularity}</p>
+                                <p><strong>Budget:</strong> $${movie.budget.toLocaleString()}</p>
+                                <p><strong>Revenue:</strong> $${movie.revenue.toLocaleString()}</p>
+                                <p><strong>Production Companies:</strong> ${movie.production_companies.map(c => c.name).join(', ')}</p>
+                            </div>
+                        </div>
+                        <div class="modal-overview">
+                            <h3>Storyline</h3>
+                            <p>${movie.overview}</p>
+                        </div>
+                    `;
+                    // Add trailer if available
+                    if (trailerUrl) {
+                        detailsHTML += `
+                            <div class="trailer-container">
+                                <h4>Trailer</h4>
+                                <iframe src="${trailerUrl}" title="Trailer" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                            </div>
+                        `;
+                    }
+                } else if (source === 'omdb' || source === 'imdb') {
+                    detailsHTML = `
+                        <div class="modal-header">
+                            <div class="modal-poster">
+                                <img src="${movie.Poster !== 'N/A' ? movie.Poster : ''}" alt="${movie.Title}" style="width: 100%;">
+                            </div>
+                            <div class="modal-details">
+                                <h2>${movie.Title}</h2>
+                                <p><strong>Year:</strong> ${movie.Year}</p>
+                                <p><strong>Age Rated:</strong> ${movie.Rated}</p>
+                                <p><strong>Release Date:</strong> ${movie.Released}</p>
+                                <p><strong>Runtime:</strong> ${movie.Runtime}</p>
+                                <p><strong>Genre:</strong> ${movie.Genre}</p>
+                                <p><strong>Director:</strong> ${movie.Director}</p>
+                                <p><strong>Writer:</strong> ${movie.Writer}</p>
+                                <p><strong>Actors:</strong> ${movie.Actors}</p>
+                                <p><strong>Language:</strong> ${movie.Language}</p>
+                                <p><strong>Country:</strong> ${movie.Country}</p>
+                                <p><strong>Awards:</strong> ${movie.Awards}</p>
+                                <p><strong>IMDb Rating:</strong> ${movie.imdbRating}</p>
+                                <p><strong>IMDb Votes:</strong> ${movie.imdbVotes}</p>
+                                <p><strong>Metascore:</strong> ${movie.Metascore}</p>
+                                <p><strong>BoxOffice:</strong> ${movie.BoxOffice}</p>
+                                <p><strong>Production:</strong> ${movie.Production}</p>
+                                <p><strong>Website:</strong> <a href="${movie.Website}" target="_blank">${movie.Website}</a></p>
+                            </div>
+                        </div>
+                        <div class="modal-overview">
+                            <h3>Storyline</h3>
+                            <p>${movie.Plot}</p>
+                        </div>
+                    `;
+                    // Trailer not available for OMDb/IMDb
+                }
+                modalDetailsContent.innerHTML = detailsHTML;
+            }
 
             // Close Modal
             function closeModal() {
